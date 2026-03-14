@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>無障礙接送計費小幫手</title>
+    <style>
+        :root {
+            --primary-color: #f39c12;
+            --bg-color: #fdf6e3;
+        }
+        body {
+            font-family: "Microsoft JhengHei", sans-serif;
+            background-color: var(--bg-color);
+            padding: 15px;
+            margin: 0;
+            color: #333;
+        }
+        .container {
+            max-width: 500px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        h2 {
+            text-align: center;
+            color: #d35400;
+            margin-top: 0;
+        }
+        .section {
+            margin-bottom: 20px;
+            padding: 10px;
+            border: 1px solid #eee;
+            border-radius: 10px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+        select, input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .checkbox-group input {
+            width: 20px;
+            height: 20px;
+            margin: 0;
+        }
+        button {
+            width: 100%;
+            padding: 15px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        button:active {
+            transform: scale(0.98);
+        }
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            background: #fff3e0;
+            border-radius: 10px;
+            display: none;
+            border-left: 5px solid var(--primary-color);
+        }
+        .total-box {
+            font-size: 1.4rem;
+            color: #e67e22;
+            font-weight: bold;
+        }
+        .negotiate {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🚖 費用試算工具</h2>
+
+    <div class="section">
+        <label>📅 哪一天出車？</label>
+        <select id="dayType">
+            <option value="weekday">平日</option>
+            <option value="weekend">週六日 / 國定假日</option>
+            <option value="special">特殊時段 (颱風、春節)</option>
+        </select>
+
+        <label>⏰ 預約時間</label>
+        <select id="hour">
+            <script>
+                for(let i=0; i<24; i++) {
+                    let h = i < 10 ? '0'+i : i;
+                    document.write(`<option value="${i}">${h}:00 ~ ${h}:59</option>`);
+                }
+            </script>
+        </select>
+    </div>
+
+    <div class="section">
+        <label>🪜 爬梯服務 (不需則選0)</label>
+        <select id="floor">
+            <option value="0">不需要爬梯機</option>
+            <option value="2">2 樓 / 3 樓</option>
+            <option value="4">4 樓</option>
+            <option value="5">5 樓</option>
+            <option value="6">6 樓</option>
+            <option value="7">7 樓</option>
+        </select>
+    </div>
+
+    <div class="section">
+        <label>✨ 其他服務</label>
+        <div class="checkbox-group">
+            <input type="checkbox" id="carType"> <span>指定車款 (+100)</span>
+        </div>
+        <div class="checkbox-group">
+            <input type="checkbox" id="wheelchair"> <span>借用輪椅 (+100)</span>
+        </div>
+    </div>
+
+    <button onclick="calculate()">開始計算費用</button>
+
+    <div id="result">
+        <div id="resultDetail"></div>
+    </div>
+</div>
+
+<script>
+    function calculate() {
+        const dayType = document.getElementById('dayType').value;
+        const hour = parseInt(document.getElementById('hour').value);
+        const floor = parseInt(document.getElementById('floor').value);
+        const carType = document.getElementById('carType').checked;
+        const wheelchair = document.getElementById('wheelchair').checked;
+
+        let transportFee = 0;
+        let stairFee = 0;
+        let isNegotiate = false;
+
+        // --- 1. 計算交通接送費 ---
+        if (hour >= 23 || hour < 7) {
+            isNegotiate = true;
+        } else {
+            // 平日基礎邏輯
+            let baseExtra = 300;
+            if (hour >= 18) baseExtra += (hour - 17) * 100;
+
+            if (dayType === 'weekday') {
+                transportFee = baseExtra;
+            } else if (dayType === 'weekend') {
+                transportFee = baseExtra + 100;
+            } else if (dayType === 'special') {
+                transportFee = baseExtra * 2;
+            }
+        }
+
+        // --- 2. 計算爬梯服務費 ---
+        if (floor > 0) {
+            if (hour >= 23 || hour < 7) {
+                isNegotiate = true;
+            } else {
+                let stairBase = 800; // 2,3樓基礎
+                if (floor >= 4) stairBase += (floor - 3) * 100;
+
+                // 時間加價
+                let timeExtra = (hour >= 18) ? (hour - 17) * 100 : 0;
+                
+                // 假日/特殊加價
+                let dayExtra = 0;
+                if (dayType === 'weekend') dayExtra = 100;
+                if (dayType === 'special') dayExtra = 200;
+
+                stairFee = stairBase + timeExtra + dayExtra;
+            }
+        }
+
+        // --- 3. 其他費用 ---
+        let otherFee = 0;
+        if (carType) otherFee += 100;
+        if (wheelchair) otherFee += 100;
+
+        // --- 顯示結果 ---
+        const resultDiv = document.getElementById('result');
+        const detailDiv = document.getElementById('resultDetail');
+        resultDiv.style.display = 'block';
+
+        if (isNegotiate) {
+            detailDiv.innerHTML = `<span class="negotiate">⚠️ 深夜時段 (23:00~06:59) 費用請由里程議價。</span>`;
+        } else {
+            let totalExtra = transportFee + stairFee + otherFee;
+            detailDiv.innerHTML = `
+                <b>明細如下：</b><br>
+                🚗 預約接送費：+$${transportFee}<br>
+                ${floor > 0 ? `🪜 爬梯機費用：$${stairFee}<br>` : ''}
+                ${otherFee > 0 ? `🛠️ 其他服務：$${otherFee}<br>` : ''}
+                <hr>
+                <div class="total-box">總共：跳錶金額 + $${totalExtra}</div>
+            `;
+        }
+    }
+</script>
+
+</body>
+</html>
